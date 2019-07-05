@@ -1,0 +1,21 @@
+{
+    "name": "neitanod/struct",
+    "homepage": "https://github.com/neitanod/struct",
+    "license": "BSD-3-Clause",
+    "type": "library",
+    "description": "PHP Class to work comfortably with nested arrays",
+    "require": {
+        "php": ">=5.3.0"
+    },
+    "authors": [
+        {
+            "name":  "Sebastián Grignoli",
+            "email": "grignoli@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-0": {
+            "Struct\\": "src/"
+        }
+    }
+}

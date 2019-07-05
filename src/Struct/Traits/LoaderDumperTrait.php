@@ -15,31 +15,32 @@ trait LoaderDumperTrait
         if (is_null($initial)) {
             return $this;
         } elseif (is_array($initial)) {
-            return static::fromArray($initial);
+            $this->fromArray($initial);
         } elseif (is_object($initial)) {
-            return static::fromObject($initial);
+            $this->fromObject($initial);
         } elseif (is_string($initial)) {
-            return static::fromJson($initial);
+            $this->fromJson($initial);
         }
+        return $this;
     }
 
-    public static function fromJson(string $json)
+    public function fromJson(string $json)
     {
-        return static::fromArray(json_decode($json, 1));
+        return $this->fromArray(json_decode($json, 1));
     }
 
-    public static function fromObject(object $object)
+    public function fromObject(object $object)
     {
-        return static::fromArray(json_decode(json_encode($object), 1));
+        return $this->fromArray(json_decode(json_encode($object), 1));
     }
 
-    public static function fromArray(array $array)
+    public function fromArray(array $array)
     {
-        $o = new static();
+        $this->data = [];
         foreach ($array as $k => $v) {
-            $o->data[$k] = sis_array($v) ? static::fromArrayOrArray($v) : $v;
+            $this->data[$k] = is_array($v) ? static::fromArrayOrArray($v) : $v;
         }
-        return $o;
+        return $this;
     }
 
     public function toArray()
@@ -58,7 +59,8 @@ trait LoaderDumperTrait
     private static function fromArrayOrArray(array $array)
     {
         if (static::faIsAssoc($array)) {
-             return static::fromArray($array);
+            $o = (new static())->fromArray($array);
+            return $o;
         }
         $o = [];
         foreach ($array as $v) {
