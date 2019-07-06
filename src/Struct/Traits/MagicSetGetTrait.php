@@ -5,8 +5,8 @@ namespace Neitanod\Struct\Traits;
 use Neitanod\Struct\Struct;
 
 /**
-* @SuppressWarnings(PHPMD.ElseExpression)
-*/
+ * @SuppressWarnings(PHPMD.ElseExpression)
+ */
 trait MagicSetGetTrait
 {
 
@@ -14,13 +14,23 @@ trait MagicSetGetTrait
 
     public function __call($name, $args)
     {
+        if (substr($name, 0, 6) === "access") {
+            if (substr($name, 0, 7) === "access_") { // assume snake_case
+                $propname = substr($name, 7);
+            } else { // assume camelCase
+                $propname = self::fromCamelCase(substr($name, 6));
+            }
+            return $this->set($propname, Struct::CREATE);  // treats it as a struct
+        }
+
         if (substr($name, 0, 3) === "set") {
             if (substr($name, 0, 4) === "set_") { // assume snake_case
                 $propname = substr($name, 4);
             } else { // assume camelCase
                 $propname = self::fromCamelCase(substr($name, 3));
             }
-            return $this->set($propname, (isset($args[0]) ? $args[0] : Struct::CREATE));  // defaults to first argument
+            $value = (array_key_exists(0, $args) ? $args[0] : Struct::DELETE);
+            return $this->set($propname, $value);  // defaults to first argument
         }
 
         if (substr($name, 0, 3) === "get") { // always snake_case internally
@@ -30,22 +40,38 @@ trait MagicSetGetTrait
         }
     }
 
-    public function set($propname, $value = Struct::CREATE)
+    public function set($propname, $value = Struct::DELETE)
     {
         if ($value === Struct::CREATE) { // chaining of empty setters allow us to set deep nested struct values
-            if (!array_key_exists($propname, $this->data)) {
+            if (!array_key_exists($propname, $this->data) || !( $this->data[$propname] instanceof static )) {
                 // echo "Defining: ". $propname . "\n";
                 $this->data[$propname] = new static();
 
                 // setters with no arguments do not chain, they nest.  Return new struct.
             }
             return $this->data[$propname];
+        } elseif ($value === Struct::DELETE) {
+            if (array_key_exists($propname, $this->data)) {
+                unset($this->data[$propname]);
+            }
         } else {
+            // echo $propname.": ".$value ."\n";
             $this->data[$propname] = $value;
         }
 
         // regular setters do not nest, they chain.  Return this object.
         return $this;
+    }
+
+    public function access($propname)
+    {
+        if (!array_key_exists($propname, $this->data) || !( $this->data[$propname] instanceof static )) {
+            // echo "Defining: ". $propname . "\n";
+            $this->data[$propname] = new static();
+        }
+
+        // getters do not chain, they nest.  Return value or new struct.
+        return $this->data[$propname];
     }
 
     public function get($propname, $defaultValue = null)
@@ -59,7 +85,7 @@ trait MagicSetGetTrait
         $useValue = $defaultValue === Struct::CREATE ? null : $defaultValue;
 
         // getters do not chain, they nest.  Return value or new struct.
-        return isset($this->data[$propname]) ? $this->data[$propname] : $useValue;
+        return array_key_exists($propname, $this->data) ? $this->data[$propname] : $useValue;
     }
 
     private static function fromCamelCase($input)

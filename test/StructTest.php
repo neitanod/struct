@@ -26,7 +26,7 @@ Test::is("toJson works correctly", (new Struct(["a" => 1, "b" => 2, "c" => [1, 2
     ]
 }');
 
-function test_create_from_object() {
+function create_from_object() {
 
     $obj = new stdClass();
     $obj2 = new stdClass();
@@ -41,6 +41,13 @@ function test_create_from_object() {
     $obj->d = $obj2;
 
     $s = new Struct($obj);
+
+    return $s;
+}
+
+function test_create_from_object() {
+
+    $s = create_from_object();
 
     $json =
 '{
@@ -63,6 +70,45 @@ function test_create_from_object() {
 
 Test::true("new Struct(object) gets correctly loaded", test_create_from_object());
 
+function test_read_access_method()
+{
+    $s = create_from_object();
+    $value = $s->access('d')->getZ('default');
+    return $value === 1000;
+}
+
+Test::true("test read", test_read_access_method());
+
+function test_read_magic_method()
+{
+    $s = create_from_object();
+    $value = $s->accessD()->get('y', 'default');
+    return $value === 'b';
+}
+
+Test::true("test read", test_read_magic_method());
+
+function test_delete_method()
+{
+    $s = create_from_object();
+    $b = $s->getB('default');
+    $s->setB();
+    $null = $s->getB();
+    $default = $s->getB('default');
+    $s->set('b', null);
+    $must_be_null = $s->getB('not_null');
+    $s->setA(null);
+    $must_be_null_too = $s->getA('not_null');
+    return
+        $b === 2 &&
+        is_null($null) &&
+        is_null($must_be_null) &&
+        is_null($must_be_null_too) &&
+        $default === 'default';
+}
+
+Test::true("test delete", test_delete_method());
+
 function test_default_read()
 {
     $s = new Struct();
@@ -74,9 +120,21 @@ function test_default_read()
 function test_deep_read()
 {
     $s = new Struct();
-    $default = $s->getSomething(Struct::CREATE)->getSomethingElse('default');
+    $default = $s->accessSomething()->getSomethingElse('default');
+    $s->accessSomething()->setSomethingElse('assigned');
+    $assigned = $s->accessSomething()->getSomethingElse('default');
 
-    return $default == $default;
+    return $assigned == 'assigned';
+}
+
+function test_deep_read_default()
+{
+    $s = new Struct();
+    $default = $s->accessSomething()->getSomethingElse('default');
+    $s->accessSomething()->setSomethingElse('assigned');
+    $assigned = $s->accessSomething()->getSomethingElse('default');
+
+    return $default == 'default';
 }
 
 function test_deep_read_with_set()
@@ -84,11 +142,12 @@ function test_deep_read_with_set()
     $s = new Struct();
     $default = $s->setSomething()->getSomethingElse('default');
 
-    return $default == $default;
+    return $default == 'default';
 }
 
 Test::true("Obtain default value from argument", test_default_read());
-Test::true("Deep path query, obtain default", test_deep_read());
+Test::true("Deep path query, obtain assigned", test_deep_read());
+Test::true("Deep path query, obtain default", test_deep_read_default());
 Test::true("Deep path query with SET, obtain default", test_deep_read_with_set());
 
 function test_default_assign()
@@ -114,8 +173,8 @@ function test_default_assign_exact_key()
 function test_deep_assign()
 {
     $s = new Struct();
-    $s->getSomething(Struct::CREATE)->setSomethingElse('assigned');
-    $read = $s->getSomething(Struct::CREATE)->getSomethingElse('default');
+    $s->accessSomething()->setSomethingElse('assigned');
+    $read = $s->accessSomething()->getSomethingElse('default');
 
     return $read == 'assigned';
 }
@@ -123,8 +182,11 @@ function test_deep_assign()
 function test_deep_assign_with_set()
 {
     $s = new Struct();
-    $s->setSomething()->setSomethingElse('assigned');
-    $read = $s->getSomething()->getSomethingElse('default');
+    $s->setSomething('xx');
+    $s->setSomething();
+
+    $s->accessSomething()->setSomethingElse('assigned');
+    $read = $s->accessSomething()->getSomethingElse('default');
 
     return $read == 'assigned';
 }

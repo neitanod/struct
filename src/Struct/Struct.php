@@ -52,4 +52,5 @@ class Struct
     use LoaderDumperTrait;
 
     public const CREATE = '__struct__create__aslkhsdafkhfsd__khadsfhusdfajhu___';
+    public const DELETE = '__struct__delete__aslkhsdafkhfsd__khadsfhusdfajhu___';
 }
