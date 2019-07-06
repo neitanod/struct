@@ -38,8 +38,9 @@ The above code will print:
 Using exact keys
 ----------------
 
-As we saw in the above example, using the `setSomeVarName('the value')` style will internally store everything using snake case
-keys.   It's equivalent to assigning directly `$arr['some_var_name'] = 'the value';`
+As we saw in the above example, using the `setSomeVarName('the value')` style
+will internally store everything using snake case keys.   It's equivalent to
+assigning directly `$arr['some_var_name'] = 'the value';`
 
 But we can also use exact keys:
 
@@ -62,25 +63,24 @@ Will print:
 Creating and querying nested arrays
 -----------------------------------
 
-`Struct::CREATE` is a special value that tells the struct to return a new 
-struct as the default value to return, but instead of just returning it, it 
-also sets it, so the full path gets built and you can assign values to the
-created struct.
+The `access` method tells the struct to return a new struct (or current stored
+struct) as the value to return, but instead of just returning it, it also sets
+it, so the full path gets built and you can assign values to the created struct.
 
 If there's already a struct there, it will use it instead of creating an
 empty one (it will preserve any other value it has).
 
     $s
-      ->getSomething(Struct::CREATE)
-      ->get('SomethingElse', Struct::CREATE)
+      ->accessSomething()
+      ->access('SomethingElse')
       ->set('Yet_Something else', 'some assigned val')
     ;
 
 The above instruction creates the tree and assigns the value.
 
     $obtained  = $s
-      ->getSomething(Struct::CREATE)
-      ->get('SomethingElse', Struct::CREATE)
+      ->accessSomething()
+      ->access('SomethingElse')
       ->get('Yet_Something else', 'some default val')
     ;
 
@@ -94,8 +94,8 @@ Will print:
     some assigned val
 
     $s
-      ->getSomething(Struct::CREATE)
-      ->get('SomethingElse', Struct::CREATE)
+      ->accessSomething()
+      ->access('SomethingElse')
       ->setMyNewKey('my new value')
     ;
 
