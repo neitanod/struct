@@ -31,7 +31,7 @@ trait LoaderDumperTrait
 
     public function fromObject(object $object)
     {
-        return $this->fromArray(json_decode(json_encode($object), 1));
+        return $this->fromArray(self::castToArray($object));
     }
 
     public function fromArray(array $array)
