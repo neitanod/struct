@@ -45,7 +45,12 @@ require_once(__dir__ . '/Traits/LoaderDumperTrait.php');
 use Neitanod\Struct\Traits\MagicSetGetTrait;
 use Neitanod\Struct\Traits\LoaderDumperTrait;
 
-class Struct
+interface TraversableStruct extends \Traversable
+{
+
+}
+
+class Struct implements \IteratorAggregate, TraversableStruct
 {
 
     use MagicSetGetTrait;
@@ -53,4 +58,9 @@ class Struct
 
     public const CREATE = '__struct__create__aslkhsdafkhfsd__khadsfhusdfajhu___';
     public const DELETE = '__struct__delete__aslkhsdafkhfsd__khadsfhusdfajhu___';
+
+    public function getIterator()
+    {
+        return new \ArrayIterator($this->data);
+    }
 }
