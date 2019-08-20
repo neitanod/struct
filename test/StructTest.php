@@ -26,7 +26,8 @@ Test::is("toJson works correctly", (new Struct(["a" => 1, "b" => 2, "c" => [1, 2
     ]
 }');
 
-function create_from_object() {
+function create_from_object()
+{
 
     $obj = new stdClass();
     $obj2 = new stdClass();
@@ -45,12 +46,13 @@ function create_from_object() {
     return $s;
 }
 
-function test_create_from_object() {
+function test_create_from_object()
+{
 
     $s = create_from_object();
 
     $json =
-'{
+    '{
     "a": 1,
     "b": 2,
     "c": [
@@ -203,7 +205,7 @@ function test_chained_assign()
         ->setSomething('something assigned')
         ->setSomethingElse('something else assigned');
     $json =
-'{
+    '{
     "something": "something assigned",
     "something_else": "something else assigned"
 }';
@@ -220,7 +222,7 @@ function test_chained_assign_exact_key()
         ->set('__somethingXX', 'something assigned')
         ->set('SomethingElse', 'something else assigned');
     $json =
-'{
+    '{
     "__somethingXX": "something assigned",
     "SomethingElse": "something else assigned"
 }';
@@ -229,5 +231,58 @@ function test_chained_assign_exact_key()
 }
 
 Test::true("Chained assign with exact key", test_chained_assign_exact_key());
+
+function test_arrayaccess_assign()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "ABC";
+    $s['a']['b']['c2'] = "ABC2";
+    $s['a']['b2']['c'] = "AB2C";
+    $json =
+    '{
+    "a": {
+        "b": {
+            "c": "ABC",
+            "c2": "ABC2"
+        },
+        "b2": {
+            "c": "AB2C"
+        }
+    }
+}';
+    $s['a']['b2']->get('d', "default");
+
+    return $json === $s->toJson();
+}
+
+Test::true("Arrayaccess assign", test_arrayaccess_assign());
+
+function test_arrayaccess_get()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "ABC";
+    $s['a']['b']['c2'] = "ABC2";
+    $s['a']['b2']['c'] = "AB2C";
+    $json =
+    '{
+    "a": {
+        "b": {
+            "c": "ABC",
+            "c2": "ABC2"
+        },
+        "b2": {
+            "c": "AB2C"
+        }
+    }
+}';
+    $default = $s['a']['b2']->get('d', "default");
+
+    return $json === $s->toJson() && $default == "default";
+}
+
+Test::true("Arrayaccess assign", test_arrayaccess_get());
+
+
+
 
 Test::totals();
