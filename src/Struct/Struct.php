@@ -39,12 +39,6 @@ POSSIBILITY OF SUCH DAMAGE.
 
 namespace Neitanod\Struct;
 
-require_once(__dir__ . '/Traits/MagicSetGetTrait.php');
-require_once(__dir__ . '/Traits/LoaderDumperTrait.php');
-
-use Neitanod\Struct\Traits\MagicSetGetTrait;
-use Neitanod\Struct\Traits\LoaderDumperTrait;
-
 interface TraversableStruct extends \Traversable
 {
 
@@ -53,11 +47,134 @@ interface TraversableStruct extends \Traversable
 class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
 {
 
-    use MagicSetGetTrait;
-    use LoaderDumperTrait;
+    protected $data = [];
+    protected $parent = null;
+    protected $parent_key = null;
 
     public const CREATE = '__struct__create__aslkhsdafkhfsd__khadsfhusdfajhu___';
     public const DELETE = '__struct__delete__aslkhsdafkhfsd__khadsfhusdfajhu___';
+
+    public function __construct($initial = null)
+    {
+        if (is_null($initial)) {
+            return $this;
+        } elseif (is_array($initial)) {
+            $this->fromArray($initial);
+        } elseif (is_object($initial)) {
+            $this->fromObject($initial);
+        } elseif (is_string($initial)) {
+            $this->fromJson($initial);
+        }
+        return $this;
+    }
+
+    public function __call($name, $args)
+    {
+        if (substr($name, 0, 6) === "access") {
+            if (substr($name, 0, 7) === "access_") { // assume snake_case
+                $propname = substr($name, 7);
+            } else { // assume camelCase
+                $propname = self::fromCamelCase(substr($name, 6));
+            }
+            return $this->access($propname);  // treats it as a struct
+            //return $this->set($propname, Struct::CREATE);  // treats it as a struct
+        }
+
+        if (substr($name, 0, 3) === "set") {
+            if (substr($name, 0, 4) === "set_") { // assume snake_case
+                $propname = substr($name, 4);
+            } else { // assume camelCase
+                $propname = self::fromCamelCase(substr($name, 3));
+            }
+            $value = (array_key_exists(0, $args) ? $args[0] : Struct::DELETE);
+            return $this->set($propname, $value);  // defaults to first argument
+        }
+
+        if (substr($name, 0, 3) === "get") { // always snake_case internally
+            $propname = self::fromCamelCase(substr($name, 3));
+            // echo "Propname: ".$propname."\n";
+            return $this->get($propname, (isset($args[0]) ? $args[0] : null));  // defaults to first argument
+        }
+    }
+
+    public function set($propname, $value = Struct::DELETE)
+    {
+        // if ($value === Struct::CREATE) { // chaining of empty setters allow us to set deep nested struct values
+        //     if (!array_key_exists($propname, $this->data) || !( $this->data[$propname] instanceof static )) {
+        //         // echo "Defining: ". $propname . "\n";
+        //         $this->data[$propname] = new static();
+        //
+        //         // setters with no arguments do not chain, they nest.  Return new struct.
+        //     }
+        //     return $this->data[$propname];
+        // } else
+        if ($value === Struct::DELETE) {
+            if (array_key_exists($propname, $this->data)) {
+                unset($this->data[$propname]);
+            }
+        } else {
+            // echo $propname.": ".$value ."\n";
+            $this->data[$propname] = $value;
+        }
+
+        $this->installInParent(); // if this instance was created on the fly, then make permanent in parent's struct
+
+        // regular setters do not nest, they chain.  Return this object.
+        return $this;
+    }
+
+    public function access($propname)
+    {
+        if (!array_key_exists($propname, $this->data) || !( $this->data[$propname] instanceof static )) {
+            // echo "Defining: ". $propname . "\n";
+            // $this->data[$propname] = new static();
+            $new_struct = new static();
+            $new_struct->registerParent($this, $propname);
+            return $new_struct;
+        }
+
+        // getters do not chain, they nest.  Return value or new struct.
+        return $this->data[$propname];
+    }
+
+    protected function registerParent($parent, $key)
+    {
+        $this->parent = $parent;
+        $this->parent_key = $key;
+    }
+
+    protected function installInParent()
+    {
+        if ($this->parent instanceof static && $this->parent_key) {
+            $this->parent->set($this->parent_key, $this);
+        }
+    }
+
+    public function get($propname, $defaultValue = null)
+    {
+        if ($defaultValue === Struct::CREATE) { // chaining of empty setters allow us to set deep nested struct values
+            if (!array_key_exists($propname, $this->data)) {
+                // echo "Defining: ". $propname . "\n";
+                $this->data[$propname] = new static();
+            }
+        }
+        $useValue = $defaultValue === Struct::CREATE ? null : $defaultValue;
+
+        // getters do not chain, they nest.  Return value or new struct.
+        return array_key_exists($propname, $this->data) ? $this->data[$propname] : $useValue;
+    }
+
+    private static function fromCamelCase($input)
+    {
+        preg_match_all('!([A-Z][A-Z0-9]*(?=$|[A-Z][a-z0-9])|[A-Za-z][a-z0-9]+)!', $input, $matches);
+        $ret = $matches[0];
+        foreach ($ret as &$match) {
+            $match = $match == strtoupper($match) ? strtolower($match) : lcfirst($match);
+        }
+        return implode('_', $ret);
+    }
+
+
 
     public function getIterator()
     {
@@ -85,5 +202,84 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
     public function offsetGet($offset)
     {
         return isset($this->data[$offset]) ? $this->get($offset) : $this->access($offset);
+    }
+
+    public function __toString()
+    {
+        return "";
+    }
+
+    public function fromJson(string $json)
+    {
+        return $this->fromArray(json_decode($json, 1));
+    }
+
+    public function fromObject(object $object)
+    {
+        return $this->fromArray(self::castToArray($object));
+    }
+
+    public function fromArray(array $array)
+    {
+        $this->data = [];
+        foreach ($array as $k => $v) {
+            $this->data[$k] = is_array($v) ? static::fromArrayOrArray($v) : $v;
+        }
+        return $this;
+    }
+
+    public function toArray()
+    {
+        if (isset($this->data)) {
+            return static::castToArray($this->data);
+        }
+        return [];
+    }
+
+    public function toJson()
+    {
+        return json_encode($this->toArray(), JSON_PRETTY_PRINT);
+    }
+
+    private static function fromArrayOrArray(array $array)
+    {
+        if (static::faIsAssoc($array)) {
+            $o = (new static())->fromArray($array);
+            return $o;
+        }
+        $o = [];
+        foreach ($array as $v) {
+            $o[] = is_array($v) ? static::fromArrayOrArray($v) : $v ;
+        }
+        return $o;
+    }
+
+    private static function faIsAssoc(array $arr)
+    {
+        if (array() === $arr) {
+            return false;
+        }
+        return array_keys($arr) !== range(0, count($arr) - 1);
+    }
+
+    private static function castToArray($var)
+    {
+        if (is_object($var)) {
+            return static::objectToArray($var);
+        } elseif (is_array($var)) {
+            $o = [];
+            foreach ($var as $k => $v) {
+                $o[$k] = static::castToArray($v);
+            }
+            return $o;
+        }
+        return $var;
+    }
+
+    private static function objectToArray($obj)
+    {
+        return method_exists($obj, "toArray") ?
+            $obj->toArray() :
+            static::castToArray((array)$obj);
     }
 }
