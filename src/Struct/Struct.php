@@ -74,7 +74,7 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
             if (substr($name, 0, 7) === "access_") { // assume snake_case
                 $propname = substr($name, 7);
             } else { // assume camelCase
-                $propname = self::fromCamelCase(substr($name, 6));
+                $propname = static::fromCamelCase(substr($name, 6));
             }
             return $this->access($propname);  // treats it as a struct
             //return $this->set($propname, Struct::CREATE);  // treats it as a struct
@@ -84,14 +84,14 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
             if (substr($name, 0, 4) === "set_") { // assume snake_case
                 $propname = substr($name, 4);
             } else { // assume camelCase
-                $propname = self::fromCamelCase(substr($name, 3));
+                $propname = static::fromCamelCase(substr($name, 3));
             }
             $value = (array_key_exists(0, $args) ? $args[0] : Struct::DELETE);
             return $this->set($propname, $value);  // defaults to first argument
         }
 
         if (substr($name, 0, 3) === "get") { // always snake_case internally
-            $propname = self::fromCamelCase(substr($name, 3));
+            $propname = static::fromCamelCase(substr($name, 3));
             // echo "Propname: ".$propname."\n";
             return $this->get($propname, (isset($args[0]) ? $args[0] : null));  // defaults to first argument
         }
@@ -123,6 +123,20 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
         return $this;
     }
 
+    public function get($propname, $defaultValue = null)
+    {
+        if ($defaultValue === Struct::CREATE) { // chaining of empty setters allow us to set deep nested struct values
+            if (!array_key_exists($propname, $this->data)) {
+                // echo "Defining: ". $propname . "\n";
+                $this->data[$propname] = new static();
+            }
+        }
+        $useValue = $defaultValue === Struct::CREATE ? null : $defaultValue;
+
+        // getters do not chain, they nest.  Return value or new struct.
+        return array_key_exists($propname, $this->data) ? $this->data[$propname] : $useValue;
+    }
+
     public function access($propname)
     {
         if (!array_key_exists($propname, $this->data) || !( $this->data[$propname] instanceof static )) {
@@ -139,29 +153,21 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
 
     protected function registerParent($parent, $key)
     {
+        // Internal function used to build nested paths only when assigning
+        // values to the last struct.  This function creates the path but does
+        // not assign it to the base struct yet.
         $this->parent = $parent;
         $this->parent_key = $key;
     }
 
     protected function installInParent()
     {
+        // Internal function used to build nested paths only when assigning
+        // values to the last struct.  This function gets called when something is assigned
+        // to the leaf node, and makes the path permanent in the struct.
         if ($this->parent instanceof static && $this->parent_key) {
             $this->parent->set($this->parent_key, $this);
         }
-    }
-
-    public function get($propname, $defaultValue = null)
-    {
-        if ($defaultValue === Struct::CREATE) { // chaining of empty setters allow us to set deep nested struct values
-            if (!array_key_exists($propname, $this->data)) {
-                // echo "Defining: ". $propname . "\n";
-                $this->data[$propname] = new static();
-            }
-        }
-        $useValue = $defaultValue === Struct::CREATE ? null : $defaultValue;
-
-        // getters do not chain, they nest.  Return value or new struct.
-        return array_key_exists($propname, $this->data) ? $this->data[$propname] : $useValue;
     }
 
     private static function fromCamelCase($input)
@@ -174,56 +180,21 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
         return implode('_', $ret);
     }
 
-
-
-    public function getIterator()
-    {
-        return new \ArrayIterator($this->data);
-    }
-
-
-
-
-    public function offsetSet($offset, $value)
-    {
-        $this->set($offset, $value);
-    }
-
-    public function offsetExists($offset)
-    {
-        return isset($this->data[$offset]);
-    }
-
-    public function offsetUnset($offset)
-    {
-        unset($this->data[$offset]);
-    }
-
-    public function offsetGet($offset)
-    {
-        return isset($this->data[$offset]) ? $this->get($offset) : $this->access($offset);
-    }
-
-    public function __toString()
-    {
-        return "";
-    }
-
     public function fromJson(string $json)
     {
         return $this->fromArray(json_decode($json, 1));
     }
 
-    public function fromObject(object $object)
+    public function fromObject($object)
     {
-        return $this->fromArray(self::castToArray($object));
+        return $this->fromArray(static::toArrayDeep($object));
     }
 
     public function fromArray(array $array)
     {
         $this->data = [];
         foreach ($array as $k => $v) {
-            $this->data[$k] = is_array($v) ? static::fromArrayOrArray($v) : $v;
+            $this->data[$k] = is_array($v) ? static::fromArrayDeep($v) : $v;
         }
         return $this;
     }
@@ -231,7 +202,7 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
     public function toArray()
     {
         if (isset($this->data)) {
-            return static::castToArray($this->data);
+            return static::toArrayDeep($this->data);
         }
         return [];
     }
@@ -241,7 +212,12 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
         return json_encode($this->toArray(), JSON_PRETTY_PRINT);
     }
 
-    private static function fromArrayOrArray(array $array)
+    public function __toString()
+    {
+        return $this->toJson();
+    }
+
+    private static function fromArrayDeep(array $array)
     {
         if (static::faIsAssoc($array)) {
             $o = (new static())->fromArray($array);
@@ -249,7 +225,7 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
         }
         $o = [];
         foreach ($array as $v) {
-            $o[] = is_array($v) ? static::fromArrayOrArray($v) : $v ;
+            $o[] = is_array($v) ? static::fromArrayDeep($v) : $v ;
         }
         return $o;
     }
@@ -262,14 +238,14 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
         return array_keys($arr) !== range(0, count($arr) - 1);
     }
 
-    private static function castToArray($var)
+    private static function toArrayDeep($var)
     {
         if (is_object($var)) {
             return static::objectToArray($var);
         } elseif (is_array($var)) {
             $o = [];
             foreach ($var as $k => $v) {
-                $o[$k] = static::castToArray($v);
+                $o[$k] = static::toArrayDeep($v);
             }
             return $o;
         }
@@ -280,6 +256,38 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
     {
         return method_exists($obj, "toArray") ?
             $obj->toArray() :
-            static::castToArray((array)$obj);
+            static::toArrayDeep((array)$obj);
+    }
+
+    public function __isSet($offset)
+    {
+        return isset($this->data[$offset]);
+    }
+
+    // IteratorAggregate interface
+    public function getIterator()
+    {
+        return new \ArrayIterator($this->data);
+    }
+
+    // ArrayAccess interface
+    public function offsetExists($offset)
+    {
+        return isset($this->data[$offset]);
+    }
+
+    public function offsetGet($offset)
+    {
+        return isset($this->data[$offset]) ? $this->get($offset) : $this->access($offset);
+    }
+
+    public function offsetSet($offset, $value)
+    {
+        $this->set($offset, $value);
+    }
+
+    public function offsetUnset($offset)
+    {
+        unset($this->data[$offset]);
     }
 }

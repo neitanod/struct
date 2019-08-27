@@ -282,7 +282,32 @@ function test_arrayaccess_get()
 
 Test::true("Arrayaccess assign", test_arrayaccess_get());
 
+function test_not_empty_is_not_empty()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "Hello";
+    return !empty($s['a']['b']['c']);
+}
 
+Test::true("Not empty element returns not empty", test_not_empty_is_not_empty());
+
+function test_not_empty_path_is_not_empty()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "Hello";
+    return !empty($s['a']['b']);
+}
+
+Test::true("Not empty path returns not empty", test_not_empty_path_is_not_empty());
+
+function test_empty_path_is_empty()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "Hello";
+    return empty($s['a']['b']['d']);
+}
+
+Test::true("Empty path returns empty", test_empty_path_is_empty());
 
 
 Test::totals();
