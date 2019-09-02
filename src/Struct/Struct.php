@@ -114,7 +114,11 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
             }
         } else {
             // echo $propname.": ".$value ."\n";
-            $this->data[$propname] = $value;
+            if ($propname == "") {
+                $this->data[] = $value;
+            } else {
+                $this->data[$propname] = $value;
+            }
         }
 
         $this->installInParent(); // if this instance was created on the fly, then make permanent in parent's struct
