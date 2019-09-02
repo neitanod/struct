@@ -44,7 +44,7 @@ interface TraversableStruct extends \Traversable
 
 }
 
-class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
+class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct, \Countable
 {
 
     protected $data = [];
@@ -293,5 +293,11 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct
     public function offsetUnset($offset)
     {
         unset($this->data[$offset]);
+    }
+
+    // Countable interface
+    public function count()
+    {
+        return count($this->data);
     }
 }
