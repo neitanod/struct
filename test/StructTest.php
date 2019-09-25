@@ -119,6 +119,30 @@ function test_default_read()
     return $default == 'default';
 }
 
+function test_nodefault_read()
+{
+    $s = new Struct();
+    $default = $s->getSomething();
+
+    return is_null($default);
+}
+
+function test_access_read()
+{
+    $s = new Struct();
+    $newstruct = $s->accessSomething();
+
+    return ($newstruct instanceof Struct && $newstruct != $s);
+}
+
+function test_arrayaccess_read()
+{
+    $s = new Struct();
+    $newstruct = $s["something"];
+
+    return ($newstruct instanceof Struct && $newstruct != $s);
+}
+
 function test_deep_read()
 {
     $s = new Struct();
@@ -148,6 +172,9 @@ function test_deep_read_with_set()
 }
 
 Test::true("Obtain default value from argument", test_default_read());
+Test::true("Obtain null when no default value given", test_nodefault_read());
+Test::true("Obtain struct when using access", test_access_read());
+Test::true("Obtain struct when using array access on undefined", test_arrayaccess_read());
 Test::true("Deep path query, obtain assigned", test_deep_read());
 Test::true("Deep path query, obtain default", test_deep_read_default());
 Test::true("Deep path query with SET, obtain default", test_deep_read_with_set());
