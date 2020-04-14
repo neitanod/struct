@@ -307,7 +307,60 @@ function test_arrayaccess_get()
     return $json === $s->toJson() && $default == "default";
 }
 
-Test::true("Arrayaccess assign", test_arrayaccess_get());
+Test::true("Arrayaccess get", test_arrayaccess_get());
+
+function test_chained_unset()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "ABC";
+    $s['a']['b']['c2'] = "ABC2";
+    $s['a']['b2']['c'] = "AB2C";
+    $json =
+    '{
+    "a": {
+        "b": {
+            "c2": "ABC2"
+        }
+    }
+}';
+    $default = $s['a']->unset('b2')['b']->unset('c');
+
+    return $json === $s->toJson();
+}
+
+Test::true("Chained unset", test_chained_unset());
+
+function test_clone_and_unset()
+{
+    $s = new Struct();
+    $s['a']['b']['c'] = "ABC";
+    $s['a']['b']['c2'] = "ABC2";
+    $s['b']['b2']['c'] = "AB2C";
+    $jsona = '{
+    "a": {
+        "b": {
+            "c": "ABC",
+            "c2": "ABC2"
+        }
+    }
+}';
+
+    $jsonb = '{
+    "b": {
+        "b2": {
+            "c": "AB2C"
+        }
+    }
+}';
+    $sa = $s->clone()->unset('b');
+    $sb = $s->clone()->unset('a');
+
+    return
+        $jsona === $sa->toJson() &&
+        $jsonb === $sb->toJson();
+}
+
+Test::true("Clone and unset", test_clone_and_unset());
 
 function test_not_empty_is_not_empty()
 {

@@ -109,9 +109,7 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct, \Co
         //     return $this->data[$propname];
         // } else
         if ($value === Struct::DELETE) {
-            if (array_key_exists($propname, $this->data)) {
-                unset($this->data[$propname]);
-            }
+            $this->unset($propname);
         } else {
             // echo $propname.": ".$value ."\n";
             if ($propname == "") {
@@ -124,6 +122,13 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct, \Co
         $this->installInParent(); // if this instance was created on the fly, then make permanent in parent's struct
 
         // regular setters do not nest, they chain.  Return this object.
+        return $this;
+    }
+
+    public function unset($propname) {
+        if (array_key_exists($propname, $this->data)) {
+            unset($this->data[$propname]);
+        }
         return $this;
     }
 
@@ -301,8 +306,8 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct, \Co
         return count($this->data);
     }
 
-    public function without($key)
+    public function clone()
     {
-        return new static($this->data)->offsetUnset($key);
+        return new static($this->data);
     }
 }
