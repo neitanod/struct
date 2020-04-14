@@ -300,4 +300,9 @@ class Struct implements \ArrayAccess, \IteratorAggregate, TraversableStruct, \Co
     {
         return count($this->data);
     }
+
+    public function without($key)
+    {
+        return new static($this->data)->offsetUnset($key);
+    }
 }
